@@ -1,0 +1,166 @@
+# # things to order from pablo
+  (x) sizing-info for servers
+  (x) certificate(s) for the webpages you're going to create (vpn.{customer}.jepphost.com & prod.{customer}.jepphost.com)
+  (x) customer-specific NFS storage
+  (x) customer subnets (private & public)
+  (x) CGMT for subnet access in firewall
+  (x) CGMT for ipsec to customer
+  (x) CGMT for customer-ipa included in the password portal
+
+# assigning IP-addresses to machines, creating DNS-records & configuring internal-openvpn
+  (x) prepare ansible inventories (create host_vars for each machine)
+  (x) create public dns-records
+        [IBM Cloud] https://cloud.ibm.com/gen1/infrastructure/devices
+  (x) create private dns-records
+        [jepphost.local DC (Domain Controller)]
+  (x) create CNAME for sftp to studio-infra
+  (x) [IBM-Cloud] ensure storage snapshots are enabled for the customer-specific NFS-share found under: classic infrastructure -> file storage (not for Cold-DR)
+  (x) [IBM-Cloud] ensure customer subnet is added to authorized hosts for the internal & customer -NFS-share found under: classic infrastructure -> file storage
+  (x) [internal OpenVPN servers] add customer subnets to openvpn (EMEA, APAC & NORAM)
+
+
+
+# create VM's, boot them up and set root-pw's
+  (x) [VCenter GUI] create 'VM & template folders': ams03.{customer}.jepphost.com & fra02.{customer}.jepphost.com
+  (x) [ansible] create the machines using playbook: create_vm_from_template.yml
+  (x) [VCenter GUI] boot up all machines
+  (x) set root-passwords (unique for each machine) and document them in Vcenter
+
+
+
+# playbooks to run on all machines (exclude IPA)
+  (x) playbook: clean_hosts.yml resolves an issue with hostname-lookup
+  (x) playbook: spacewalk.yml registers machines in spacewalk
+  (x) [Spacewalk GUI] subscribe all systems to sub-channel: carmutil (modify default settings in spacewalk for this?)
+  (x) playbook: common.yml which installs & configures common settings for VM's
+  (x) (modify first) playbook: ipa.yml to join the server(s) to IPA-domain (if not running customer IPA check HBAC)
+  (x) modify playbook/roles/ipa/tasks/join.yml to join domain: (customer).jepphost.com
+  (x) playbook: directories.yml creates the directory-structure necessary to mount NFS-shares
+  (x) playbook: nfs.yml which mounts the internal & customer-specific NFS shares
+  (x) playbook: directories.yml run it again to ensure the standard-directory structure exists on the NFS storage
+  (x) playbook: sendgrid.yml which ensure machines are able to send emails
+
+
+
+# IPA (prod only)
+  (x) create user-groups
+  (x) create HBAC Rule that includes access to customer servers
+  (x) add hosting users to {customer}-int
+  (x) add customer user to {customer}-only
+
+
+
+# netscaler
+  (x) create netscaler virtual server: prod.{customer}.jepphost.com and configure it with a valid certificate
+  (x) link CA-cert (probably the preassigned cert)
+        to search type "name:"
+        Configuration
+  (x) Traffic Management
+       Load Balancing
+          Services
+              configure service for app01:02 HTTP port 80
+          Virtual Servers
+              configure prod.{customer}.jepphost.com@443
+              add both app-services as Load Balancing Virtual server Service Bindings
+              create certificate using script from Johan/Philip
+              create jira for pablo to order certicicate (HOST-3621)
+                when downloading signed cert use "Server Platform - OTHER" & "File Type - A single .pem file containing only the end entity certificate"
+              configure CA Certificate and Server Certificate
+
+
+
+# install & configure ETX (app)
+  (x) playbook: etxsvr.yml to install etx-server(s)
+  (x) playbook: etxcn.yml to install etx-connection node(s)
+  (x) [ETX GUI] (first sign in to http://app[01-02].ams03.{customer}.jepphost.com/etx/admin with etxadmin credentials)
+      users and profiles
+      nodes and sessions
+        add nodes
+      Site settings
+        Licenses
+            you have to go to the licensserver to approve each site
+        New user settings
+        General
+        Authentication
+          LDAP password is written in vSphere for the ipa-server
+          Edit searchfilter for users
+          remove mail from login-filter
+        (Messages)
+  (x) import etx-profile-template for the correct release (remove old profiles before templates)
+  (x) disable file-transfer in template
+  (x) register the studiosite to etx-license server (http://etxlc.emea.jepphost.com:80)
+  (x) install & configure etx-printing by running playbook: etxcn.yml --tags printer
+  (x) start up extsvr & etxcn and enable the services so they run on reboot
+
+
+
+# install & configure UGE (all except ipa/vpn)
+  (x) prepare ansible inventory
+  (x) install & configure using ansible-playbook uge.yml (you need to run it with: "--tags ugeinstall" & "--tags ugeconfig")
+  (x) copy init.d script (/opt/Univa/current/default/common/sgemaster) to: /etc/init.d/ on the sgeshadow host
+  (x) create a copy of /opt/Jeppesen/share/{CUSTOMER}/etc/carmsite/Release24.etab for the customer's carmsys version(s)
+  (x) apply manual config described by chuck in JIRA: AEEP-107
+  (x) append the following to: /opt/Jeppesen/share/{CUSTOMER}/etc/carmsite/SGEJobtypeOptions.etab ("carmusr_test", "-q opt.{customer}.queue",)
+  (x) start uge on the machines and enable the services so they run on reboot
+
+
+
+# install application + NTH packages
+  (x) install UDT & NiceToHaveIQ (https://jira.jeppesensystems.com/confluence/pages/viewpage.action?pageId=75478972)
+  (x) install carmutil rpm's on app & opt-servers (both carmutil-release & carmutil-mr-standard) found in CARMSYS/data/rpms/
+  (x) # app-servers
+       carmutil-mr-standard carmutil-release carmutil-ots gnome-terminal git python2-behave gnome-terminal
+  (x) # opt-servers
+       carmutil-mr-standard carmutil-ots python2-behave
+
+
+
+# borg-backups & NFS-snapshots (studio-infra) *informativ jira HOST-3585*
+  (x) prepare inventories for borg
+  (x) create a borg backup script and run playbook: backup.yml
+      copy script from ams03.{customer} and modify customerspecific information
+      place the script in /backup/{datacenter}.jepphost.com/
+  (x) create cron-job for data backup
+      use crontab -e to check syntax-error before writing to diskspace
+      place the script under /var/spool/cron/root/
+  (x) create cron-job for password expiration email (prod ipa)
+
+
+# monitoring with ServerDensity (all)
+  (x) prepare ansible inventory for SD monitoring, make sure all the necessary processes are being monitored
+  (x) install serverdensity using ansible-playbook: serverdensity.yml
+  (x) configure serverdensity alerts using ansible-playbook: serverdensity.yml --tags alerts
+  (x) configure serverdensity http-checks using ansible-playbook: serverdensity.yml --tags http_plugin (stuido-infra)
+
+
+# synchronizing data to DR environment (studio-infra)
+  (x) prepare ansible varibles
+        run playbook: sendgrid.yml to configure mails for the infra-node in the DR environment (the hourly rsync sends a report to the hosting-team by email)
+        prepare a drsync script that you put u nder: ansible/inventories/{CUSTOMER}/files/
+        create a drkey and a drkey.pub and add the the drkey.pub to authorized hosts on the prod-infra.
+        edit the .ssh/config on the dr-infra to user drkey when connecting to prod-infra
+        configure by running ansible-playbook: drsync.yml
+        run /etc/cron.hourly/{datacenter}-{CUSTOMER}.jepphost.com.sh
+
+# testing
+  etx
+    run /opt/Jeppesen/share/clx/usr/jcp/prod/clx_planning/bin/setup_links.py and /bin/build_all.py
+    run bin/runTest.sh to confirm that the gived scenarios for the customer works
+ Comment
+People
+Assignee:
+johan.brjesson
+ Johan Börjesson-EXT
+Assign to me
+Reporter:
+johan.brjesson
+ Johan Börjesson-EXT
+Votes:	0 Vote for this issue
+Watchers:	2
+Start watching this issue
+Dates
+Created:	09/Jun/21 10:13 AM
+Updated:	2 hours ago
+Collaborators
+Agile
+View on Board
