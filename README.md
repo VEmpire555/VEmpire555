@@ -1,6 +1,6 @@
 - 👋 Hi, I’m @VEmpire555
-- 👀 I’m interested in learning
-- 🌱 I’m currently learning Ansible 
+- 👀 I’m interested in learning new things every day
+- 🌱 I’m currently learning Ansible and Python
 - 💞️ I’m looking to collaborate on ...
 - 📫 How to reach me ...
 
