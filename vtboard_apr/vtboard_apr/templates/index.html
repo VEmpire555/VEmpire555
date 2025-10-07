@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8" />
+  <title>Västtrafik APR – Realtid, karta & detaljer (lokalt)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <style>
+    body { font-family: system-ui, Segoe UI, Arial, sans-serif; margin: 2rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(320px,1fr)); gap: 1rem; }
+    .card { border:1px solid #ddd; border-radius:8px; padding:1rem; }
+    .muted { color:#666; }
+    ul { list-style:none; padding:0; margin:0; }
+    li { border-bottom:1px dashed #eee; padding:.35rem 0; cursor:pointer; }
+    small.badge{ background:#eef; color:#225; padding:.2rem .4rem; border-radius:4px; }
+    input, select, button { padding:.5rem; }
+    .row { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; }
+    #map { height: 420px; border-radius:8px; }
+    .modal { position:fixed; inset:0; background:rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; }
+    .modal .paper { background:#fff; max-width:780px; width:95%; padding:1rem; border-radius:8px; max-height:85vh; overflow:auto; }
+    .close { float:right; }
+  </style>
+</head>
+<body>
+  <h1>Realtidsavgångar – Västtrafik (APR)</h1>
+
+  <div class="grid">
+    <div class="card">
+      <div class="row">
+        <input id="lines" placeholder="Linjer (t.ex. X90,X1,X6)" value="X90,X1,X6"/>
+        <input id="to" placeholder="Destination innehåller (valfritt)" />
+        <select id="interval">
+          <option value="30">30 s</option>
+          <option value="45">45 s</option>
+          <option value="60" selected>60 s</option>
+        </select>
+        <button id="btn-run">Starta</button>
+      </div>
+      <div class="muted" style="margin-top:.35rem">
+        Hållplats: <strong>Volvo Torslanda PVH</strong> (låst GID) – realtid från APR.
+      </div>
+      <ul id="list" style="margin-top:.5rem"></ul>
+      <div class="muted" id="updated"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Karta – fordon</h3>
+      <div id="map"></div>
+      <div class="muted" style="margin-top:.35rem">
+        Fordonspositioner från APR *Positions* (filtreras på linjer & kartvy).
+      </div>
+    </div>
+  </div>
+
+  <h2>Förvalda kort</h2>
+  <div id="board" class="grid"></div>
+
+  <!-- Detaljvy modal -->
+  <div class="modal" id="modal">
+    <div class="paper">
+      <button class="close" id="close">Stäng</button>
+      <h3 id="m_title"></h3>
+      <div id="m_body"></div>
+    </div>
+  </div>
+
+  <div class="muted" style="margin-top:1rem">
+    Källor: APR v4 (endpoints för avgångar/detaljer/positions) samt Västtrafiks PVH‑sida (GID).
+  </div>
+
+  <script>
+    window.DEFAULT_CARDS = {{ defaults|tojson }};
+    window.PVH = {{ pvh|tojson }};
+  </script>
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
